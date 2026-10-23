@@ -379,7 +379,88 @@ This gives better uptime and lets the system serve more concurrent users.
 
 ---
 
-## 16. Summary
+## 16. Examples of Load Balancers
+
+Load balancers are available in several categories depending on where they are deployed and how they are managed.
+
+### Software load balancers
+
+These are often installed on Linux or Windows servers and run as software in your own infrastructure.
+
+Examples:
+
+- NGINX
+- HAProxy
+- Apache HTTP Server
+- Envoy
+- Traefik
+- Varnish
+
+#### Typical use cases
+
+- reverse proxying for web traffic
+- SSL termination
+- routing to multiple backend application servers
+- API gateways and service-to-service traffic control
+
+#### Example
+
+NGINX and HAProxy are commonly used in front of app servers to distribute HTTP requests and perform health checks.
+
+---
+
+### Cloud load balancers
+
+These are managed services provided by cloud vendors. They are often easy to scale, integrate with managed infrastructure, and can handle traffic at large scale.
+
+Examples:
+
+- AWS Elastic Load Balancer (ELB)
+- Application Load Balancer (ALB)
+- Network Load Balancer (NLB)
+- Google Cloud Load Balancing
+- Azure Load Balancer
+- Cloudflare Load Balancing
+- DigitalOcean Load Balancers
+
+#### Typical use cases
+
+- public internet traffic distribution
+- health-based failover between instances
+- scaling across regions and availability zones
+- SSL termination and traffic routing
+
+#### Example
+
+An AWS ALB can route HTTPS requests to multiple EC2 instances, automatically removing unhealthy targets and balancing traffic by path, host, or rule.
+
+---
+
+### Hardware load balancers
+
+These are specialized physical devices built for high-performance traffic management and are usually used in enterprise environments with high throughput and strict networking needs.
+
+Examples:
+
+- F5 BIG-IP
+- Citrix ADC
+- Kemp LoadMaster
+- A10 Networks Thunder ADC
+
+#### Typical use cases
+
+- large enterprise networks
+- mission-critical applications
+- high throughput and complex traffic policies
+- advanced security and SSL offloading
+
+#### Example
+
+A hardware appliance may sit in front of a large internal application stack to provide high availability, application acceleration, and traffic policy control for thousands of concurrent users.
+
+---
+
+## 17. Summary
 
 Load balancing is a critical component in scaling a system. It helps us:
 
