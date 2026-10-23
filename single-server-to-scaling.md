@@ -295,13 +295,309 @@ This simple architecture is perfect for small systems, but it has major bottlene
 
 ---
 
+## Step 2: Strategies on Scaling and Optimizing
+
+Once the single-server architecture is working, the next question becomes: how do we grow it without breaking the system?
+
+The first major optimization is to separate the web tier from the data tier.
+
+---
+
+## 1. Separate the Web Tier from the Data Tier
+
+In the single-server setup, the same machine handles:
+
+- user traffic
+- application logic
+- database queries
+- cache access
+- background tasks
+
+This means the system is simple, but the resources are all competing with each other.
+
+When traffic grows, one of the first design improvements is to separate responsibilities:
+
+- The web tier handles incoming HTTP requests
+- The data tier handles storage and persistence
+- The cache sits near the app for fast reads
+- Background systems can be isolated for async work
+
+This creates a cleaner flow:
+
+```text
+Client -> Web Server -> App Logic -> Cache -> Database
+```
+
+The benefit is that the database can be tuned and scaled independently from the application layer.
+
+If a database becomes slow, we can optimize or scale it without necessarily changing the whole web serving layer.
+
+---
+
+## 2. Why Database Choice Matters Before Scaling
+
+Before choosing how to scale a system, we need to choose the correct database model.
+
+A database is not a generic storage box. It shapes:
+
+- how data is modeled
+- how queries work
+- how transactions behave
+- how consistent the system is
+- how difficult scaling becomes
+
+That is why database selection happens early.
+
+For a deeper comparison, see [Database.md](./Database.md).
+
+---
+
+## 3. Relational Databases
+
+Relational databases use tables, schemas, rows, and SQL queries.
+
+Examples:
+
+- MySQL
+- PostgreSQL
+- SQLite
+- Oracle
+- SQL Server
+
+### Core traits
+
+- Structured, tabular data model
+- Strong schema definition
+- Transaction support
+- Good support for joins and reporting
+- Predictable behavior for consistent workloads
+
+### Best for
+
+- user accounts and profiles
+- transaction-heavy systems
+- inventory and order processing
+- financial or business-critical workloads
+- systems needing strong consistency
+
+### Advantages
+
+- Strong consistency and integrity
+- Mature tooling and ecosystem
+- Excellent support for complex querying
+- Better fit for analytical and reporting workloads
+- Reliable transaction support
+
+### Disadvantages
+
+- Harder to scale horizontally
+- Schema changes can be expensive
+- Can become bottlenecked under heavy write workloads
+- Often require vertical scaling first
+
+---
+
+## 4. NoSQL Databases
+
+NoSQL databases are designed for flexible, distributed, high-scale systems.
+
+Examples:
+
+- MongoDB
+- Cassandra
+- Redis
+- DynamoDB
+- Couchbase
+
+### Core traits
+
+- Flexible schema or document-based storage
+- Designed for horizontal scaling
+- Optimized for large-scale reads and writes
+- Often used in distributed systems
+- Different consistency models depending on the database
+
+### Best for
+
+- event logs and analytics
+- content feeds and activity streams
+- high-throughput APIs
+- session data
+- highly distributed products with large traffic spikes
+
+### Advantages
+
+- Flexible data modeling
+- Easier horizontal scaling
+- Good performance for large-scale reads and writes
+- Works well with unstructured or semi-structured data
+- Often better suited for distributed architectures
+
+### Disadvantages
+
+- Weaker or more complex consistency guarantees
+- Harder to do complex relational queries
+- Joins are often limited or not supported
+- Operational complexity can rise at scale
+
+---
+
+## 5. Relational vs NoSQL at a Glance
+
+### Choose relational when:
+
+- the data has clear relationships
+- we need strong transactions
+- we depend on SQL joins and reporting
+- correctness and consistency matter more than raw throughput
+
+### Choose NoSQL when:
+
+- the system is very large or distributed
+- schemas evolve frequently
+- we need large-scale read/write throughput
+- horizontal scaling is important
+- we are optimizing for flexibility and speed over strict relational modeling
+
+### Many real systems use both
+
+A common pattern is:
+
+- relational database for core business data
+- Redis for caching and sessions
+- NoSQL for specific workloads like logs, search, or analytics
+
+This hybrid approach often gives the best tradeoff.
+
+---
+
+## 6. Vertical Scaling
+
+Vertical scaling means making a single machine more powerful.
+
+Examples:
+
+- more CPU
+- more RAM
+- faster SSDs
+- larger instance size
+
+### Advantages
+
+- easiest to implement
+- no application changes required at first
+- simpler operations for small systems
+- fast way to improve performance without redesign
+
+### Disadvantages
+
+- limited by the capacity of one machine
+- can become expensive at higher sizes
+- still has a single point of failure
+- not a long-term scaling strategy for large systems
+
+### Best use case
+
+Vertical scaling is useful during early growth when the system is still small and a single server is enough.
+
+---
+
+## 7. Horizontal Scaling
+
+Horizontal scaling means adding more machines and distributing the workload across them.
+
+Examples:
+
+- multiple application servers behind a load balancer
+- database replicas
+- multiple cache instances
+- distributed workers
+
+### Advantages
+
+- better fault tolerance
+- higher throughput
+- easier to scale with increased traffic
+- reduces the chance that one server becomes a bottleneck
+- better for large production systems
+
+### Disadvantages
+
+- more complexity
+- requires load balancing and coordination
+- data consistency becomes harder to manage
+- introduces more moving parts and operational overhead
+
+### Best use case
+
+Horizontal scaling is the standard strategy for systems that need to support large user bases and high availability.
+
+---
+
+## 8. Vertical vs Horizontal Scaling: Which One to Choose?
+
+### Use vertical scaling when:
+
+- the system is still small
+- there is a single bottleneck on one server
+- a quick upgrade solves the issue
+- the goal is low complexity and fast delivery
+
+### Use horizontal scaling when:
+
+- traffic is increasing rapidly
+- the system needs to stay available under load
+- you want fault tolerance and redundancy
+- a single machine can no longer handle the workload
+- the system is moving toward production-grade infrastructure
+
+In many real systems, the pattern is:
+
+1. start with a single server
+2. optimize with caching and better database choices
+3. scale vertically for a while if needed
+4. move to horizontal scaling when demand grows
+
+---
+
+## 9. Practical Scaling Strategy
+
+A sensible progression looks like this:
+
+1. Start with one server
+2. Choose the correct database type
+3. Separate the web tier from the data tier
+4. Add caching for repeated reads
+5. Scale vertically if the workload increases moderately
+6. Add horizontal scaling when traffic and availability needs rise
+7. Use load balancing, replication, CDNs, and monitoring
+
+This gives a clean path from a simple setup to a robust production architecture.
+
+---
+
+## 10. Summary
+
+Step 2 is about understanding the first real scaling principles:
+
+- separate the web layer from the data layer
+- choose the right database model early
+- understand relational vs NoSQL tradeoffs
+- decide whether to scale up or scale out
+
+The main lesson is that scaling is not just about adding more hardware. It is about designing the system so each layer can grow independently and remain reliable under load.
+
+---
+
 ## Next Topic
 
-The next step is to understand how this single-server design evolves into a more scalable architecture by separating concerns and adding layers like:
+The next step is to move from the database decision into the actual scaling architecture, including:
 
-- caching
+- caching strategies
 - load balancing
-- multiple application instances
+- multiple application servers
 - database replication
 - CDNs
 - production infrastructure
+
+This will show how a simple single-server system evolves into a durable, scalable production design.
