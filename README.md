@@ -4,6 +4,7 @@ A practical guide to the building blocks of scalable, resilient, and production-
 
 This repository focuses on the core topics that appear in system design interviews and real-world architecture decisions:
 
+- [Single server to scaling](./single-server-to-scaling.md)
 - [API design and contracts](./API.md)
 - [Databases and data modeling](./Database.md)
 - [Caching strategies](./Caching.md)
