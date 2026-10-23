@@ -460,7 +460,165 @@ A hardware appliance may sit in front of a large internal application stack to p
 
 ---
 
-## 17. Summary
+## 17. SPOF and How to Prevent It
+
+A load balancer is often a critical component of the system, which means it can become a Single Point of Failure (SPOF).
+
+If the load balancer fails, user traffic may be unable to reach the application servers, even if those servers are healthy.
+
+### What happens when the load balancer fails?
+
+A load balancer outage can affect the business in several ways:
+
+- users cannot access the application
+- all incoming traffic stops or is routed incorrectly
+- API requests fail or time out
+- checkout, login, or transactions stop working
+- revenue and user trust are impacted
+- incident response and recovery cost increases
+
+This is why a single load balancer is not enough for high-availability production systems.
+
+---
+
+### How to prevent this
+
+#### 1. Add redundancy
+
+Run more than one load balancer in parallel.
+
+Common patterns include:
+
+- active-active setup
+- active-passive setup
+- multiple load balancers across different availability zones
+
+This ensures that if one fails, another continues to serve traffic.
+
+#### 2. Use health checks
+
+The load balancer should constantly check backend health and mark unhealthy servers as unavailable.
+
+Similarly, load balancers themselves should be monitored to detect outages early.
+
+#### 3. Monitor and alert
+
+Teams should monitor:
+
+- load balancer health
+- backend response times
+- connection counts
+- dropped requests
+- backend availability
+- DNS or network failures
+
+Monitoring helps detect issues before they become business outages.
+
+#### 4. Use failover setup
+
+If one load balancer goes down, traffic should automatically fail over to another load balancer or a standby instance.
+
+This is often handled by cloud-managed load balancers or high-availability network setups.
+
+#### 5. Keep load balancers in different zones or regions
+
+For critical systems, place load balancers in separate availability zones or regions so one infrastructure failure does not bring down the entire traffic entry point.
+
+#### 6. Protect the public entry point
+
+The public DNS or entry endpoint should not rely on a single load balancer instance. A multi-region or high-availability design reduces risk.
+
+---
+
+### Example failure scenario
+
+Imagine a system has:
+
+- 3 application servers
+- 1 load balancer
+- a public domain `app.demo.com`
+
+If that one load balancer crashes due to a network issue or process failure:
+
+- all incoming requests are dropped
+- users cannot reach the app
+- the backend servers remain healthy but are unreachable
+- the business experiences downtime even though the application layer is fine
+
+This is the classic impact of a SPOF.
+
+---
+
+### Best practice
+
+To avoid this, a production system should use:
+
+- multiple load balancers
+- health checks for both backend servers and the balancers themselves
+- autoscaling or automatic replacement when a balancer fails
+- centralized monitoring and alerting
+- regional redundancy for critical workloads
+
+---
+
+## 18. Self-Healing Systems
+
+A self-healing system is one that can automatically detect failure and recover without needing a human to manually intervene.
+
+In load balancing, self-healing means the system can:
+
+- detect unhealthy servers
+- stop sending traffic to failed instances
+- replace failed instances automatically
+- restore healthy capacity without downtime
+- keep serving traffic despite transient failures
+
+### Why this matters
+
+Without self-healing behavior, an outage can continue until someone notices it and reacts manually. This increases downtime and operational cost.
+
+In production, self-healing is a major reliability pattern because it reduces recovery time and prevents small failures from becoming major incidents.
+
+---
+
+### Examples of self-healing in action
+
+#### 1. Auto-restart unhealthy app servers
+
+If a backend server crashes, a service manager or orchestrator can restart it automatically.
+
+#### 2. Replace failed instances
+
+If a node remains unhealthy for too long, the platform can create a new instance and remove the broken one.
+
+#### 3. Health-based rerouting
+
+The load balancer can redirect traffic away from unhealthy nodes until they recover.
+
+#### 4. Auto-scaling based on traffic
+
+When traffic rises, new instances are launched automatically. When traffic falls, unused instances are removed.
+
+#### 5. Circuit breaking and retries
+
+A self-healing system may also avoid sending traffic to a failing dependency and retry later, reducing cascading failures.
+
+---
+
+### Self-healing and load balancing together
+
+A strong production design combines both:
+
+- load balancing distributes traffic
+- health checks identify unhealthy nodes
+- self-healing replaces failed instances
+- monitoring alerts the team when abnormal behavior occurs
+
+This creates a system that can recover with limited human intervention.
+
+---
+
+## 19. Summary
 
 Load balancing is a critical component in scaling a system. It helps us:
 
