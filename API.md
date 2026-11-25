@@ -892,3 +892,483 @@ Strong API design starts with real use cases and requirements, then combines:
 REST, GraphQL, and gRPC solve different problems. REST is natural for HTTP resources, GraphQL is useful for flexible client-defined reads, and gRPC is strong for typed, high-performance internal communication.
 
 The goal is not simply to expose endpoints or methods. The goal is to create an interface that consumers can understand, trust, and use safely for many years.
+
+---
+
+## 21. OSI Model and API Transport
+
+The **Open Systems Interconnection (OSI) model** describes where networking responsibilities live. It has seven layers, but the application/API perspective is primarily concerned with:
+
+| Layer | Responsibility | API examples |
+|---|---|---|
+| 7 — Application | Application protocols and data semantics | HTTP, HTTPS, DNS, gRPC, WebSockets |
+| 6 — Presentation | Encoding, serialization, and encryption format | JSON, XML, TLS, compression, Protocol Buffers |
+| 5 — Session | Maintaining a logical exchange | TLS sessions, application sessions, connection lifetime |
+| 4 — Transport | End-to-end delivery between processes | TCP, UDP, ports |
+| 3 — Network | Routing packets between hosts | IP addresses, routers |
+| 2 — Data Link | Delivery between directly connected devices | Ethernet, Wi-Fi, MAC addresses |
+| 1 — Physical | Transmission of bits | Fiber, copper, radio |
+
+An API request may pass through all layers: application data is serialized, TLS and TCP or UDP framing are added, IP routes it across networks, Ethernet or Wi-Fi carries it over a physical link, and the reverse process occurs at the receiver.
+
+### Transport layer
+
+The **transport layer** identifies a process on a host using ports and controls how data is delivered between endpoints. Examples include port 443 for HTTPS and port 53 for DNS.
+
+### TCP
+
+**TCP (Transmission Control Protocol)** is connection-oriented, ordered, reliable, and flow-controlled.
+
+Before application data is exchanged, TCP performs a three-way handshake:
+
+```text
+Client -> SYN -> Server
+Client <- SYN-ACK <- Server
+Client -> ACK -> Server
+```
+
+After establishment, TCP provides:
+
+- ordered byte delivery
+- retransmission of lost segments
+- congestion and flow control
+- connection teardown
+- stream-oriented data
+
+TCP is used where reliable delivery matters, including HTTP/1.1, HTTP/2, HTTPS, gRPC, email, file transfer, and databases. TCP may wait for retransmission and reorder packets, so latency can be affected by lost data.
+
+### UDP
+
+**UDP (User Datagram Protocol)** is connectionless and does not provide retransmission, ordering, congestion guarantees, or delivery acknowledgments. It has less protocol overhead and is commonly used for latency-sensitive or best-effort traffic.
+
+UDP examples include DNS, live audio/video, gaming, telemetry, and QUIC. QUIC runs over UDP and adds reliability, encryption, and multiplexing for applications such as HTTP/3.
+
+### TCP versus UDP
+
+| Property | TCP | UDP |
+|---|---|---|
+| Connection | Handshake; connection state | No handshake before data |
+| Reliability | Retransmits lost data | Application chooses recovery behavior |
+| Ordering | Reassembles bytes in order | Datagrams can arrive reordered or be lost |
+| Overhead | Higher | Lower |
+| Flow/congestion control | Built in | Not guaranteed |
+| Typical use | APIs, web, file and database traffic | DNS, streaming, gaming, real-time telemetry |
+
+Neither protocol is inherently faster in every situation. TCP's reliability is valuable for APIs, while UDP is useful when low overhead or application-level control matters more than guaranteed delivery.
+
+---
+
+## 22. Filtering, Sorting, and Pagination
+
+Collection APIs should limit and structure result sets deliberately.
+
+### Filtering
+
+Filtering selects matching resources:
+
+```http
+GET /orders?status=paid&customerId=123&createdFrom=2026-11-01
+```
+
+Benefits:
+
+- reduces response size
+- lowers network, serialization, and database costs
+- helps clients retrieve only relevant data
+- improves search and reporting workflows
+- reduces processing for mobile and low-bandwidth clients
+
+Validate filter names and values, reject unknown parameters or unsupported combinations, and document allowed operators and data types.
+
+### Sorting
+
+Sorting defines result order:
+
+```http
+GET /orders?sort=-createdAt,status
+```
+
+Benefits:
+
+- provides predictable ordering
+- supports chronological or ranked views
+- enables stable pagination
+- improves usability for dashboards and feeds
+
+Document the sort field syntax and default order. Sort large datasets only on indexed fields and prevent expensive arbitrary database sorting. Include a deterministic tie-breaker, such as `id`, to avoid unstable pages.
+
+### Pagination
+
+Pagination prevents the API from returning an entire collection at once.
+
+#### Offset pagination
+
+```http
+GET /orders?limit=20&offset=40
+```
+
+Advantages:
+
+- simple to implement
+- supports page-number navigation
+
+Disadvantages:
+
+- misses or duplicates records as data changes
+- expensive for deep offsets
+- difficult to scale with very large collections
+
+#### Cursor pagination
+
+```http
+GET /orders?limit=20&after=eyJpZCI6IjEwMCJ9
+```
+
+A cursor represents the position of the last returned item. It is more stable for feeds and growing datasets.
+
+Benefits of cursor pagination:
+
+- efficient for large or frequently changing collections
+- avoids expensive offsets
+- prevents most moving-window inconsistencies
+
+Limit maximum page size, return `hasMore` or `nextCursor`, and avoid exposing database offsets or unstable internal identifiers when not needed.
+
+---
+
+## 23. HTTP Status Codes
+
+Status codes communicate the result category without putting that category only in the response body.
+
+### 1xx — Informational
+
+- `100 Continue`: the client may continue with a request body.
+- `103 Early Hints`: preliminary headers can help the client start loading resources.
+
+### 2xx — Success
+
+- `200 OK`: request succeeded.
+- `201 Created`: a resource was created.
+- `202 Accepted`: processing will occur asynchronously.
+- `204 No Content`: success with no response body.
+
+### 3xx — Redirection
+
+- `301 Moved Permanently`: resource has a permanent new location.
+- `302 Found`: temporary redirect in most browsers.
+- `303 See Other`: direct the client to retrieve another resource, commonly after `POST`.
+- `307 Temporary Redirect`: temporary redirect that preserves the HTTP method.
+- `308 Permanent Redirect`: permanent redirect that preserves the HTTP method.
+- `304 Not Modified`: cached representation is still valid.
+
+A redirect should include a `Location` header and should not be used where a normal API response is better understood as success or failure.
+
+### 4xx — Client Error
+
+- `400 Bad Request`: invalid syntax or request validation failure.
+- `401 Unauthorized`: authentication is missing or invalid.
+- `403 Forbidden`: authenticated caller lacks permission.
+- `404 Not Found`: resource or route is absent, or intentionally hidden.
+- `409 Conflict`: action conflicts with current state.
+- `422 Unprocessable Content`: well-formed request has semantically invalid values.
+- `429 Too Many Requests`: quota or rate limit exceeded.
+
+### 5xx — Server Error
+
+- `500 Internal Server Error`: unexpected server failure.
+- `502 Bad Gateway`: upstream invalid or unavailable.
+- `503 Service Unavailable`: temporary overload or maintenance.
+- `504 Gateway Timeout`: upstream did not respond in time.
+
+Do not use `401` to mean “you are authenticated but lack permission”; that is `403`. Always include a structured error body in addition to the status code.
+
+---
+
+## 24. Authentication
+
+**Authentication** proves identity: *who is making the request?*
+
+Common methods include:
+
+### HTTP Basic authentication
+
+```http
+Authorization: Basic base64(username:password)
+```
+
+Base64 is encoding, not encryption. Basic authentication should therefore be used only over HTTPS and is normally replaced by stronger application methods for end-user systems.
+
+### HTTP Digest authentication
+
+Digest authentication avoids sending a plaintext password and uses a challenge, nonce, HTTP method, URI, and an MD5-derived digest. It is more secure than Basic in some isolated legacy contexts, but MD5 is weak by modern cryptographic standards and the mechanism should generally not be selected for a new system.
+
+### API key authentication
+
+The client sends a key, commonly as a header:
+
+```http
+Authorization: ApiKey <key>
+```
+
+API keys identify projects or integrations rather than necessarily proving a person's identity. Protect keys, restrict scopes and origins, rotate them, store hashes where possible, and revoke compromised keys quickly.
+
+### Session-based authentication
+
+The server creates a session after login and returns a session identifier, usually in an HTTP-only, Secure, SameSite cookie.
+
+```text
+Login -> server validates credentials -> creates session -> stores session ID
+Client -> cookie containing session ID -> server looks up session
+```
+
+Advantages:
+
+- easy server-side revocation
+- established browser protections
+- server controls session metadata
+
+Tradeoffs:
+
+- session storage becomes state and a scaling concern
+- sticky routing or shared session storage may be required
+- logout and revocation require session invalidation
+
+A system is **stateful** when authentication requires server-side state tied to a session. Stateless systems validate credentials or signed tokens without looking up a local session on each request.
+
+### Bearer token authentication
+
+```http
+Authorization: Bearer <token>
+```
+
+A bearer token grants access to whoever possesses it, like a key. It must be sent only over TLS, with a short lifetime and strict scope.
+
+### JWT authentication
+
+A **JSON Web Token (JWT)** is a compact signed or encrypted token containing claims. A common signed structure is:
+
+```text
+header.payload.signature
+```
+
+The API verifies the signature and claims such as issuer, audience, subject, expiry (`exp`), issued-at time, and scope. It should reject expired, wrong-audience, wrong-issuer, or incorrectly signed tokens.
+
+JWTs are suitable for stateless authorization but require careful design:
+
+- do not store secrets in the token
+- do not trust unsigned or `alg=none` tokens
+- use short access-token lifetimes
+- implement key rotation and issuer validation
+- plan logout, revocation, and compromised-key handling
+
+A JWT is not automatically encrypted. Signing proves integrity and issuer authenticity; encryption protects confidentiality.
+
+### Access and refresh tokens
+
+- **Access token:** short-lived credential authorizing API requests
+- **Refresh token:** longer-lived credential used to obtain a new access token
+
+Refresh tokens should be stored and protected more carefully than access tokens. Rotate refresh tokens on use, revoke token families after suspicious use, bind where appropriate, and use secure, HTTP-only cookies or platform secure storage.
+
+### OAuth 2.0
+
+**OAuth 2.0** is an authorization framework that allows a third-party application to receive limited access to resources with user consent. It is not by itself an authentication standard.
+
+Roles include:
+
+- resource owner
+- client
+- authorization server
+- resource server
+
+Common flows include authorization code with PKCE for browsers and native apps, client credentials for service-to-service access, and device authorization for constrained devices.
+
+An OAuth access token grants a scope and does not necessarily prove who the end user is.
+
+### OpenID Connect
+
+**OpenID Connect (OIDC)** adds an identity layer on OAuth 2.0. It provides an ID token, standard claims, discovery metadata, and identity-verification conventions.
+
+OIDC is used for login. OAuth 2.0 is used to authorize access to protected resources. They are often combined: OIDC authenticates the user, and OAuth authorizes downstream API access.
+
+### Single sign-on
+
+**Single sign-on (SSO)** gives a user one login experience across multiple applications or services. SSO is often implemented with SAML, OpenID Connect, or OAuth/OIDC enterprise integrations.
+
+SSO improves the user experience and centralizes identity policy, account lifecycle, MFA, and audit. It also creates a critical identity-provider dependency, so availability and recovery must be planned.
+
+SSO should be distinguished from session sharing: SSO is the identity and user-experience protocol; sessions and tokens are how applications maintain logged-in state.
+
+---
+
+## 25. Authorization
+
+**Authorization** decides what an authenticated identity may access or perform: *what is permitted?*
+
+Every resource operation should make a server-side authorization decision. Never rely on hidden fields, client controls, or UI buttons.
+
+Examples:
+
+- can the user read this tenant's order?
+- can the account administrator change billing settings?
+- can this service publish only to the `inventory` topic?
+
+### Role-Based Access Control
+
+**Role-Based Access Control (RBAC)** assigns permissions to roles and roles to users.
+
+```text
+Admin -> manage users, view billing
+Editor -> create and update content
+Viewer -> read content
+```
+
+Benefits:
+
+- easy to understand and manage
+- works well for stable organizational roles
+- supports least privilege
+
+Costs:
+
+- role explosion for many combinations
+- roles can become too broad
+
+### Attribute-Based Access Control
+
+**Attribute-Based Access Control (ABAC)** makes decisions from attributes of the user, resource, action, and environment.
+
+Example policy:
+
+```text
+Allow a doctor to read a patient's record
+if the doctor works in the patient's region
+and the patient has consented
+and the request occurs during approved hours.
+```
+
+ABAC is flexible for fine-grained and contextual authorization, but policy engines and audit trails become more complex.
+
+### Access Control Lists
+
+An **Access Control List (ACL)** attaches allowed or denied principals to a resource.
+
+```text
+Document 42:
+  Alice: read, write
+  Billing group: read
+  Bob: denied
+```
+
+ACLs provide direct resource ownership and fine-grained control. In large systems, they require indexing and caching to evaluate efficiently.
+
+Authorization models can be combined: RBAC for broad roles, ABAC for policy context, and ACLs for object ownership. Deny-by-default is safer than relying on a broad allow rule.
+
+---
+
+## 26. Proven API Security Techniques
+
+The following practices should be considered defense in depth rather than isolated fixes.
+
+### 1. Rate limiting
+
+Rate limiting restricts request volume per identity, IP, API key, route, or tenant. It can reduce brute force, abuse, accidental loops, resource exhaustion, and cost.
+
+Use multiple scopes and fail safely:
+
+- global limits for protection
+- per-user limits for fairness
+- per-endpoint limits for expensive operations
+- stricter limits for login and password reset
+- `429` plus retry metadata
+
+Algorithms include fixed window, sliding window, and token bucket. Distributed systems need a shared rate-limit store or a carefully defined local/global policy.
+
+### 2. CORS
+
+**Cross-Origin Resource Sharing (CORS)** is a browser security mechanism that controls which origins can make cross-origin reads or requests.
+
+Configure `Access-Control-Allow-Origin`, methods, headers, credentials, and preflight cache deliberately. Never reflect an arbitrary origin plus `Access-Control-Allow-Credentials: true`. CORS protects browser behavior; it does not replace authentication or authorization.
+
+### 3. SQL injection
+
+**SQL injection** occurs when untrusted input changes a query's structure.
+
+Safe pattern:
+
+```text
+Use parameterized queries or prepared statements.
+Never concatenate user input into SQL or build SQL by interpolation.
+```
+
+Other defenses include least-privilege database accounts, allow-listed sorting and filter values, escaping as appropriate for database-specific contexts, and monitoring suspicious query failures.
+
+### 4. NoSQL injection
+
+NoSQL injection occurs when user input becomes operators or query objects rather than plain values. Validate types and shapes, disallow operator keys such as `$where`, `$ne`, and `$gt` in user-controlled input, and use a database client or ODM parameterization supported by the engine.
+
+### 5. Firewalls
+
+Firewalls filter traffic based on rules such as IP, port, protocol, state, or identity-aware policy.
+
+Use:
+
+- cloud and host firewalls
+- private subnets for databases
+- deny-by-default ingress
+- restricted management ports
+- network policy between services
+
+A firewall should not expose an application by using a broad public rule merely because filtering is complex.
+
+### 6. VPNs
+
+A **Virtual Private Network (VPN)** creates an encrypted private network path for trusted users or systems. It is useful for administrative access and private service connectivity.
+
+VPN is not a complete authorization model. Once a caller is inside a private network, services should still authenticate identities and enforce least privilege.
+
+### 7. CSRF
+
+**Cross-Site Request Forgery (CSRF)** tricks a browser into sending an unwanted authenticated request.
+
+Mitigations include:
+
+- same-site cookies
+- CSRF tokens for cookie-authenticated state changes
+- origin and referer validation where appropriate
+- short session lifetimes
+- avoiding unsafe requests in cross-site contexts
+
+Modern browser protections complement server-side CSRF defenses but do not replace them.
+
+### 8. Cross-site scripting (XSS)
+
+**XSS** occurs when attacker-controlled content executes in another user's browser.
+
+Mitigations include:
+
+- contextual output encoding
+- framework escaping and safe template APIs
+- strict Content Security Policy
+- sanitizing rich HTML with a maintained allow-list library
+- HTTP-only cookies for sensitive session identifiers
+- avoiding `innerHTML` and dynamic JavaScript generation
+- validating and limiting uploaded content
+
+There are several XSS classes: stored XSS, reflected XSS, and DOM-based XSS. Stored and DOM-based attacks are especially important for modern single-page applications.
+
+### Security checklist
+
+Also include:
+
+- TLS everywhere
+- secret and key management
+- input validation and output encoding
+- secure dependency and container updates
+- audit logs and security telemetry
+- least privilege and network segmentation
+- security headers and secure cookie flags
+- threat modeling and regular penetration testing
+- safe error handling that does not expose secrets
+
+Authentication answers “who?”; authorization answers “what may they do?”; encryption protects data in transit or at rest; and the remaining controls reduce abuse, injection, and execution risk.
